@@ -31,7 +31,7 @@ LINK_OPTS = select({
 })
 
 load(
-    "protobuf",
+    ":protobuf.bzl",
     "cc_proto_library",
     "py_proto_library",
     "internal_copied_filegroup",
@@ -189,21 +189,24 @@ objc_library(
     visibility = ["//visibility:public"],
 )
 
-RELATIVE_WELL_KNOWN_PROTOS = [
-    # AUTOGEN(well_known_protos)
-    "google/protobuf/any.proto",
-    "google/protobuf/api.proto",
-    "google/protobuf/compiler/plugin.proto",
-    "google/protobuf/descriptor.proto",
-    "google/protobuf/duration.proto",
-    "google/protobuf/empty.proto",
-    "google/protobuf/field_mask.proto",
-    "google/protobuf/source_context.proto",
-    "google/protobuf/struct.proto",
-    "google/protobuf/timestamp.proto",
-    "google/protobuf/type.proto",
-    "google/protobuf/wrappers.proto",
-]
+# Map of all well known protos.
+# name => (include path, imports)
+WELL_KNOWN_PROTO_MAP = {
+    "any" : ("google/protobuf/any.proto", []),
+    "api" : ("google/protobuf/api.proto", ["source_context", "type"]),
+    "compiler_plugin" : ("google/protobuf/compiler/plugin.proto", ["descriptor"]),
+    "descriptor" : ("google/protobuf/descriptor.proto", []),
+    "duration" : ("google/protobuf/duration.proto", []),
+    "empty" : ("google/protobuf/empty.proto", []),
+    "field_mask" : ("google/protobuf/field_mask.proto", []),
+    "source_context" : ("google/protobuf/source_context.proto", []),
+    "struct" : ("google/protobuf/struct.proto", []),
+    "timestamp" : ("google/protobuf/timestamp.proto", []),
+    "type" : ("google/protobuf/type.proto", ["any", "source_context"]),
+    "wrappers" : ("google/protobuf/wrappers.proto", []),
+}
+
+RELATIVE_WELL_KNOWN_PROTOS = [proto[1][0] for proto in WELL_KNOWN_PROTO_MAP.items()]
 
 WELL_KNOWN_PROTOS = ["src/" + s for s in RELATIVE_WELL_KNOWN_PROTOS]
 
@@ -222,6 +225,21 @@ cc_proto_library(
     protoc = ":protoc",
     visibility = ["//visibility:public"],
 )
+
+internal_copied_filegroup(
+    name = "_internal_wkt_protos",
+    srcs = WELL_KNOWN_PROTOS,
+    dest = "",
+    strip_prefix = "src",
+    visibility = ["//visibility:private"],
+)
+
+[proto_library(
+    name = proto[0] + "_proto",
+    srcs = [proto[1][0]],
+    deps = [dep + "_proto" for dep in proto[1][1]],
+    visibility = ["//visibility:public"],
+    ) for proto in WELL_KNOWN_PROTO_MAP.items()]
 
 ################################################################################
 # Protocol Buffers Compiler
